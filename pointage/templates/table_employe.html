@@ -150,11 +150,11 @@
                     {% if da < 3 %}
                     <a href="{% url 'update_employe' instance.id %}" class="btn btn-info">Modifier</a>
                     {% endif %}
-                    <a href="{% url 'main_view' instance.id %}" class="btn btn-primary" target="_blank">Fuielle de Pointage</a>
-                    <a href="{% url 'pointage_mois' instance.id %}" class="btn btn-primary">Pointage de mois</a>
+                    <a href="{% url 'mission' instance.id %}" class="btn btn-primary" >Mission</a>
+                    <a href="{% url 'pointage_mois' instance.id %}" class="btn btn-primary">Pointage</a>
 
                     {% if da == 1 %}
-                    <a href="{% url 'synthese' instance.id %}" class="button">Fiche Synthese</a>
+                    <a href="{% url 'synthese' instance.id %}" class="btn btn-primary" target="_blank">Fiche Synthese</a>
                     <a href="{% url 'remboursement' instance.id %}" class="btn btn-warning">remboursement</a>
 
                     {% if instance.active == 1 %}
@@ -198,10 +198,24 @@ const timeoutDuration = 240000;
 
 // Function to logout the user
 function logoutUser() {
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
     // Remove session data from cookies
     document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     // Redirect to logout page or perform other logout actions
-    window.location.href = 'http://petromag-dz.com/pointage/logout/'; // Redirect to logout page
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
+    }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
 }
 
 // Function to start the countdown timer

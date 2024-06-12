@@ -56,26 +56,26 @@ class Code_Employe(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE,default=1,related_name="profile")
-    station = models.ForeignKey("Station",on_delete=models.CASCADE,null=True)
+    unite = models.ForeignKey("Unite",on_delete=models.CASCADE,null=True)
     da = models.IntegerField(default=3)
     def __str__(self):
         if self.da == 3 :
-            return f'Respon Pointage {self.station}'
+            return f'Respon Pointage {self.unite}'
         elif self.da == 2:
-            return f'Chef Station {self.station}'
+            return f'Chef unite {self.unite}'
         else : 
             return f'Directeur Generale'
 
 
-class Station(models.Model):
+class Unite(models.Model):
     
-    Nom_Station=models.CharField(max_length=40,unique=True)
+    unite_name=models.CharField(max_length=40,unique=True)
     last_update = models.DateField(null=True , blank=True)
 
     
     
     def __str__(self):
-        return self.Nom_Station
+        return self.unite_name
 
 code_counts = {
             "RS": 0,
@@ -96,7 +96,7 @@ class Employe(models.Model):
     place_of_birth=models.CharField(max_length=30,null=True)
     wilaya_of_birth=models.CharField(max_length=30)
     id=models.AutoField(primary_key=True)
-    station=models.ForeignKey(Station,on_delete=models.CASCADE,null=True)
+    unite=models.ForeignKey(Unite,on_delete=models.CASCADE,null=True)
     adresse=models.CharField(max_length=50,null=True)
     adresse_wilaya=models.CharField(max_length=30,null=True)
     father_name=models.CharField(max_length=30,null=True)
@@ -106,12 +106,12 @@ class Employe(models.Model):
     numbre_of_children=models.IntegerField(null=True)
     blood_type=models.CharField(max_length=5,null=True)
     cnas_number=models.IntegerField(null=True)
-    function=models.CharField(max_length=30,null=True)
-    position=models.CharField(max_length=30,null=True)
-    enterprise=models.CharField(max_length=30,null=True)
+    function=models.CharField(max_length=60,null=True)
+    position=models.CharField(max_length=60,null=True)
+    enterprise=models.CharField(max_length=60,null=True)
     recruitment_date=models.DateField(default=timezone.now,null=True)
-    department=models.CharField(max_length=30,null=True)
-    service=models.CharField(max_length=30,null=True)
+    department=models.CharField(max_length=60,null=True)
+    service=models.CharField(max_length=60,null=True)
     contract_number=models.CharField(max_length=40,null=True)
     contract_effective_date=models.DateField(null=True)
     contract_validation_date=models.DateField(null=True)
@@ -126,7 +126,7 @@ class Employe(models.Model):
     driver_license_number=models.CharField(max_length=60,null=True)
     driver_license_established_date=models.DateField(null=True)
     driver_license_experation_date=models.DateField(null=True)
-    driver_license_type=models.CharField(max_length=5,null=True)
+    driver_license_type=models.CharField(max_length=7,null=True)
     cni_number=models.IntegerField(null=True)
     cni_established_date=models.DateField(null=True)
     cni_established_by=models.CharField(max_length=60,null=True)
@@ -178,3 +178,10 @@ class Diplome(models.Model):
     id_employe=models.ForeignKey(Employe,on_delete=models.CASCADE)
 
     
+class Mission(models.Model):
+    employe=models.ForeignKey(Employe,on_delete=models.CASCADE)
+    start_date=models.DateField()
+    total_validation=models.IntegerField(default=1)
+    current_unite=models.ForeignKey(Unite,on_delete=models.CASCADE)
+    unites=models.CharField(max_length=30)
+    status=models.PositiveSmallIntegerField(default=0)

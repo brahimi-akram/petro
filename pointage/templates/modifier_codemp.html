@@ -173,10 +173,24 @@ const timeoutDuration = 240000;
 
 // Function to logout the user
 function logoutUser() {
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
     // Remove session data from cookies
     document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     // Redirect to logout page or perform other logout actions
-    window.location.href = 'logout/'; // Redirect to logout page
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
+    }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
 }
 
 // Function to start the countdown timer

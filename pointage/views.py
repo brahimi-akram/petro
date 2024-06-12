@@ -2,6 +2,7 @@ import calendar
 from datetime import date, timedelta,datetime
 import os
 import shutil
+from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.shortcuts import render,redirect
 from django.http import FileResponse, HttpResponse
@@ -14,11 +15,15 @@ from .models import *
 from .utils import *
 from shutil import copyfile
 
-
+import time
 
 def pointage2(request,ID):
-    station = Station.objects.get(id=ID)
-    instances=Employe.objects.filter(station=station)
+    unite = Unite.objects.get(id=ID)
+    instances=Employe.objects.filter(unite=unite)
+    mission_station=Mission.objects.filter(current_unite_id=ID,start_date__lt=datetime.now().date())
+    employe_on_mission=Employe.objects.filter(mission__in=mission_station).distinct()
+    employe_on_mission=employe_on_mission.exclude(unite_id=ID)
+    all_employe=list(instances)+list(employe_on_mission)
     date=datetime.now().date()  
     f_date = date - timedelta(days=5)
     date_range = [f_date + timedelta(days=i) for i in range(10)]
@@ -26,8 +31,7 @@ def pointage2(request,ID):
         
         MI=['1',"2","3","4","5","MS"]
         Conge=['C','CSS']
-        # Specify the ID of your Google Sheet
-        for i in instances:
+        for i in all_employe:
             ranges_and_values={}
             for date in date_range:
                 cell=find_cell(date)
@@ -87,9 +91,23 @@ def pointage2(request,ID):
                     code_emp.date=date
                     code_emp.last_update = timezone.now().date()
                     code_emp.code=Code.objects.get(pk=choice)
+                    
                     code_emp.save()
-            station.last_update= datetime.now().date()
-            station.save()
+            for emp in employe_on_mission:
+                valid=request.POST(f"{emp.id}_valid")
+                if valid:
+                    mission=Mission.objects.get(employe=emp)
+                    unites=mission.unites
+                    mission.current_unite=unites.split()[1]
+                    list_of_unites=unites.split() #this two line to remove the first element 
+                    new_unites=' '.join(list_of_unites[1:])
+                    mission.unites=new_unites
+                    mission.total_validation-=1
+                    if mission.total_validation==0:
+                        mission.status=3
+                    
+            unite.last_update= datetime.now().date()
+            unite.save()
 
         return redirect("menu_view")
     else:
@@ -121,14 +139,32 @@ def pointage2(request,ID):
                         tmp[str(d)] = ""
                 
                 res[i.id] = tmp
+        
+        
+        res2 = {}
+        for i in employe_on_mission :
+                codes_emp = Code_Employe.objects.filter(employe=i)
+                overwork=codes_emp.filter(code_id="T",date__range=(start_date,end_date)).count()
+                if overwork > 28 :
+                    overworked_employes.append(i)  
+                tmp = {}
+                for d in date_range:
+                    try :
+                        e = codes_emp.get(date=d)
+                        
+                        tmp[str(d)] = e 
+                    except:
+                        tmp[str(d)] = ""
+                
+                res2[i.id] = tmp
         codes=Code.objects.all()
-        context={'date':date,'instances':instances,'date_range':date_range,'codes':codes,'res':res,'today':date,'overwork':overworked_employes}
+        context={'date':date,'instances':instances,'date_range':date_range,'codes':codes,'res':res,'today':date,'overwork':overworked_employes,'employe_on_mission':employe_on_mission,'res2':res2}
         return render(request,'pointage.html',context)
 
 
 def logout_view(request):
     logout(request)
-    return redirect("/")
+    return redirect(login_view)
 
 def find_cell(date):
     if (date.day <=25):
@@ -222,20 +258,25 @@ def main_view(request,ID):
     file_name = "convert.sh"
     file_path = os.path.join(current_directory, file_name)
     output_folder=current_directory #os.path.join(current_directory,"temp/")
-    excel_to_pdf(file_path,output_file,output_folder)
     pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}.pdf")
+    start_time=time.time()
+    excel_to_pdf(pdf_name,output_file,output_folder)
+    end_time=time.time()
+    execution=end_time - start_time
+    print(execution)
     pdf_file= pdf_name#os.path.join(output_folder,pdf_name)
     response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
     response['Content-Disposition'] = 'inline'
     return response
+
 def login_view(request):
     
     if request.user.is_authenticated:
         return redirect("menu_view")
     if request.method == 'POST':
-        username = request.POST.get('username')
+        unitname = request.POST.get('username')
         password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
+        user = authenticate(request, unitename=unitname, password=password)
         if user is not None:
             login(request, user)
             return redirect('menu_view')  # Redirect to home page after successful login
@@ -252,14 +293,14 @@ def login_view(request):
 
 def menu_view(request):
     #init_sheet()
+    
     if not request.user.is_authenticated:
         return redirect("login")
-    id = request.user.profile.station.id
-    if request.user.profile.da == 1 and request.GET.get('station'):
-        id=request.GET.get('station') 
-    stations = Station.objects.all()
-    station = Station.objects.get(id=id)
-    print(station)
+    id = request.user.profile.unite.id
+    if request.user.profile.da == 1 and request.GET.get('unite'):
+        id=request.GET.get('unite') 
+    stations = Unite.objects.all()
+    unite = Unite.objects.get(id=id)
     yyyy = datetime.now().year
     mm = datetime.now().month
     if datetime.now().day < 16:
@@ -269,16 +310,16 @@ def menu_view(request):
         
     periode = f'{mm}{yyyy}'
     
-    last_update =station.last_update
+    last_update =unite.last_update
     if 1 :
-        employes=Employe.objects.filter(station_id=id)
+        employes=Employe.objects.filter(unite_id=id)
         MI=['1',"2","3","4","5","MS"]
         Conge=['C','CSS']
         for employe in employes:
             code_emp=''
             month_emp=''
             try:
-                code_emps=Code_Employe.objects.filter(employe=employe,last_update=last_update)
+                code_emps=Code_Employe.objects.filter(employe=employe,date__month=mm)
                 if code_emps:
                     month_emp , _ = Month_stat.objects.get_or_create(employe=employe,period=periode)
                     for code_emp in code_emps:
@@ -313,12 +354,12 @@ def menu_view(request):
                     continue
     
         
-    return render(request, 'menu.html',{'id':id ,'station':station ,'stations':stations , 'today':datetime.now().day})
+    return render(request, 'menu.html',{'id':id ,'unite':unite ,'stations':stations , 'today':datetime.now().day})
 
 
 def add_employe(request,ID):
-    init_employe()
-    if request.user.profile.station.id != ID and (request.user.profile.da != 1) :
+    #init_code()
+    if request.user.profile.unite.id != ID and (request.user.profile.da != 1) :
         return redirect("menu_view")
     formset_diplomes=formset_factory(diplomesForm)
     formset_child=formset_factory(childForm)
@@ -331,7 +372,7 @@ def add_employe(request,ID):
             partnerform=partnerForm(request.POST,prefix='partner')
             if form.is_valid():
                 user=form.save()
-                print('in')
+                
                 if partnerform.is_valid():
                     partner=partnerform.save(commit=False)
                     partner.id_employe=user
@@ -359,7 +400,7 @@ def add_employe(request,ID):
             partnerform=partnerForm(request.POST,prefix="partner")
             if form.is_valid():
                 user=form.save()
-                user.station=ID
+                user.unite=ID
                 user.save()
                 if partnerform.is_valid():
                     partner=partnerform.save(commit=False)
@@ -385,15 +426,15 @@ def add_employe(request,ID):
     return render (request, 'add_employe.html', {'form': form,'id':ID,'diplomes':formset_diplomes,'children':formset_child,'partner':partnerform})
 
 def table_employe(request,ID):
-    if request.user.profile.station.id != ID  and (request.user.profile.da != 1) :
+    if request.user.profile.unite.id != ID  and (request.user.profile.da != 1) :
         return redirect("menu_view")
-    instances=Employe.objects.filter(station=ID)
+    instances=Employe.objects.filter(unite=ID)
     return render(request,'table_employe.html',{'id':ID,'instances':instances,'da':request.user.profile.da})
 
 
         
 def pointage_mois(request,ID):
-    # if request.user.profile.station.id != ID and (request.user.profile.da == 1) :
+    # if request.user.profile.unite.id != ID and (request.user.profile.da == 1) :
     #     return redirect("menu_view")
     instance=Employe.objects.get(pk=ID)
     return render(request,'mois_form.html',{'instance':instance})
@@ -417,6 +458,8 @@ def affichage_mois(request,ID):
         12: 'décembre',
     }
     month=int(request.POST.get("month"))
+    if month == 0:
+        return redirect(main_view,ID)
     employe=Employe.objects.get(pk=ID)
     template_file = "template_mois.xlsx"
     output_file = f"{request.user.username}{ID}_mois.xlsx"
@@ -439,7 +482,7 @@ def affichage_mois(request,ID):
     sheet = workbook.active
     sheet["S4"]=f'16 {month_names_french[month]} 2024'
     sheet['W4']=f'15 {month_names_french[(int(month)+1)%12]} 2024'
-    sheet['AC1']=f'{request.user.profile.station}{datetime.now().date}'
+    sheet['AC1']=f'{request.user.profile.unite}{datetime.now().date}'
     sheet['C11']=f'{employe.id}'
     sheet['H11']=f'{employe.name}'
     sheet['R11']=f'{employe.last_name}'
@@ -498,8 +541,9 @@ def affichage_mois(request,ID):
     file_name = "convert.sh"
     file_path = os.path.join(current_directory, file_name)
     output_folder=current_directory #os.path.join(current_directory,"temp/")
-    excel_to_pdf(file_path,output_file,output_folder)
     pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}_mois.pdf")
+    excel_to_pdf(pdf_name,output_file,output_folder)
+    
     pdf_file=pdf_name #os.path.join(output_folder,pdf_name)
     response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
     response['Content-Disposition'] = 'inline'
@@ -565,7 +609,7 @@ def update_employe(request,ID):
                     if filled:
                         partner.id_employe=employe
                         partner.save()
-            return redirect(table_employe,employe.station_id)
+            return redirect(table_employe,employe.unite_id)
     else:
         form=EmployeForm(instance=employe,prefix='employe') 
         partnerform=partnerForm(prefix='partner')
@@ -605,7 +649,7 @@ def remboursement_formule(request,ID):
         form=remboursementForm(request.POST,instance=employe)
         if form.is_valid():
             form.save()
-            return redirect(table_employe,employe.station_id)
+            return redirect(table_employe,employe.unite_id)
     else:
         form=remboursementForm(instance=employe)
         return render(request,'remboursement.html',{'employe':employe,'form':form})
@@ -676,7 +720,7 @@ def fiche_de_paie(validation_date , valid):
     
             
     
-    employees = Employe.objects.filter(actif=1)
+    employees = Employe.objects.filter(active=1)
     if not valid:
         path = os.path.join(current_directory,f'excel/fiche_de_pointage{month_names_french[mm]}{yyyy}NonValide.xlsx')
     else :
@@ -736,8 +780,10 @@ def fiche_de_paie(validation_date , valid):
             for cell in range(ord(c)+1,ord(final_cell)+1):
                 sheet[f'A{chr(cell)}{i}'] = "T"
         
+        month_stat=None
         
         try :
+            print(f'{month_periode}{yyyy}')
             month_stat = Month_stat.objects.get(employe=employe , period = f'{month_periode}{yyyy}')
             # print("have : ", month_stat)
             sheet[f'AL{i}'].value += f'+{month_stat.conge}' 
@@ -757,26 +803,26 @@ def fiche_de_paie(validation_date , valid):
                 sheet[f'F{tt}'].value = f'{employe.name} {employe.last_name} : {v} j mission en code ({k})'
                 tt += 1
         
-        
-        if month_stat.absent != 0:
-            # print("Employe name : " , employe.name)
-            sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.absent} j Absence  sur le mois {month_names_french[mm-1]}'
-            t = t+1
-        if month_stat.abs_autorise != 0:
-            sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.abs_autorise} j Absence  Autorise sur le mois {month_names_french[mm-1]}'
-            t = t+1
-        if month_stat.conge != 0:
-            sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.conge} j Conge {month_names_french[mm-1]}'
-            t = t+1
-        if month_stat.rs != 0:
-            sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.rs} j Recuperation {month_names_french[mm-1]}'
-            t = t+1
-        if month_stat.mld != 0:
-            sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.mld} j Maladie {month_names_french[mm-1]}'
-            t = t+1
-        
-        i = i + 1
-    zs=Employe.objects.filter(actif=2)
+        if month_stat:
+            if month_stat.absent != 0:
+                # print("Employe name : " , employe.name)
+                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.absent} j Absence  sur le mois {month_names_french[mm-1]}'
+                t = t+1
+            if month_stat.abs_autorise != 0:
+                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.abs_autorise} j Absence  Autorise sur le mois {month_names_french[mm-1]}'
+                t = t+1
+            if month_stat.conge != 0:
+                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.conge} j Conge {month_names_french[mm-1]}'
+                t = t+1
+            if month_stat.rs != 0:
+                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.rs} j Recuperation {month_names_french[mm-1]}'
+                t = t+1
+            if month_stat.mld != 0:
+                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.mld} j Maladie {month_names_french[mm-1]}'
+                t = t+1
+            
+            i = i + 1
+    zs=Employe.objects.filter(active=2)
     for z in zs:
         sheet[f'C{i}'] = f'{employe.name} {employe.last_name}'
         sheet[f'B{i}'] = employe.id
@@ -786,7 +832,7 @@ def fiche_de_paie(validation_date , valid):
         sheet[f'F{i}']='STC'
     if valid:
         sheet['F14'].value = f'validee le {validation_date} '
-    worbook.save(f"/home/petromag-dz/public_html/pointage/excel/fiche_de_pointage{month_names_french[mm]}{yyyy}.xlsx")
+    worbook.save(f"{current_directory}/excel/fiche_de_pointage{month_names_french[mm]}{yyyy}.xlsx")
     
     
     
@@ -872,7 +918,8 @@ def validation_fdp(request):
 
 
 def download_excel(request, p):
-    path = f"/home/petromag-dz/public_html/pointage/excel/fiche_de_pointage{p}.xlsx"
+    current_directory=os.getcwd()
+    path = f"{current_directory}/excel/fiche_de_pointage{p}.xlsx"
     if os.path.exists(path):
         response = FileResponse(open(path, 'rb'))
         response['Content-Disposition'] = f'attachment; filename="fiche_de_pointage{p}.xlsx"'
@@ -883,19 +930,21 @@ def download_excel(request, p):
 
 
 def add_profile(request):
+    #init_code()
     if request.user.profile.da != 1:
         return redirect("menu_view")
-    stations = Station.objects.all()
+    stations = Unite.objects.all()
+    employe = Employe.objects.all()
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        station_id = request.POST.get('station')
+        unite_id = request.POST.get('unite')
         da = request.POST.get('da')
         user = User.objects.create_user(username=username,password=password)
-        profile = Profile.objects.create(user=user, station_id=station_id, da=da)
+        Profile.objects.create(user=user, unite_id=unite_id, da=da)
         return redirect('login')  # Redirect to login page after user creation
     
-    return render(request, 'add_profile.html',{'stations':stations})
+    return render(request, 'add_profile.html',{'stations':stations,'instances':employe})
 
 def synthese(request,ID):
     employe=Employe.objects.get(pk=ID)
@@ -993,7 +1042,7 @@ def synthese(request,ID):
         sheet['I46']=""
     children=Child.objects.filter(id_employe=employe)
     row=51
-    if children and len(children)<=3:
+    if children and len(children)<=4:
         for child in children:
             sheet[f'A{row}']=child.name
             sheet[f'B{row}']=child.last_name
@@ -1003,7 +1052,7 @@ def synthese(request,ID):
             sheet[f'I{row}']=child.af
             row+=1
     else:
-        for i in range(row,row+4):
+        for i in range(row,row+5):
             sheet[f'A{i}']=""
             sheet[f'B{i}']=""
             sheet[f'D{i}']=""
@@ -1017,9 +1066,55 @@ def synthese(request,ID):
     file_name = "convert.sh"
     file_path = os.path.join(current_directory, file_name)
     output_folder=current_directory #os.path.join(current_directory,"temp/")
-    excel_to_pdf(file_path,output_file,output_folder)
     pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}_synthese.pdf")
+    excel_to_pdf(pdf_name,output_file,output_folder)
+    
     pdf_file=pdf_name #os.path.join(output_folder,pdf_name)
     response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
     response['Content-Disposition'] = 'inline'
     return response
+
+def mission(request,ID):
+    employe=Employe.objects.get(id=ID)
+    unites=Unite.objects.all()
+    if request.method=='GET':
+        return render(request,'mission.html',{'employe':employe,'unites':unites})
+    else:
+        mission=Mission()
+        date_str=request.POST.get('start_date')
+        date = datetime.strptime(date_str, '%Y-%m-%d')
+        check_date=Mission.objects.filter(start_date=date,employe_id=ID)
+        if (check_date):
+            message='employe already have a mission on this date'
+            messages.error(request,message)
+            return render(request,'mission.html',{'employe':employe,'unites':unites})
+        if date < datetime.today():
+            message='invalid date value '
+            messages.error(request,message)
+            return render(request,'mission.html',{'employe':employe,'unites':unites})
+        unite_id=request.POST.get('unite')
+
+        unite=Unite.objects.get(pk=unite_id)
+        if unite.id==employe.unite_id:
+            message='invalid unite please try again'
+            messages.error(request,message)
+            return render(request,'mission.html',{'employe':employe,'unites':unites})
+        unite_2_id=request.POST.get('unite_1')
+        if unite_2_id:
+            all_unites=unite_id +' '+ unite_2_id
+            validation_needed=2
+            unite_3_id=request.POST.get('unite_2')
+            if unite_3_id:
+                all_unites=all_unites +' '+ unite_3_id
+                validation_needed=3
+        else:
+            all_unites=unite_id
+            validation_needed=1
+        mission.start_date=date
+        mission.employe=employe
+        mission.total_validation=validation_needed
+        mission.current_unite=unite
+        mission.unites=all_unites
+        mission.save()
+        return redirect(table_employe,employe.unite_id)
+

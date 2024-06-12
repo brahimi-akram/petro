@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Chef Station</title>
+    <title>Add Chef Unite</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,11 +41,11 @@
     </style>
 </head>
 <body>
-    <h2>Ajouter Chef Station</h2>
+    <h2>Ajouter Chef Unite</h2>
     <form method="post" action="{% url 'add_chef_station' %}">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Ajouter Chef Station</button>
+        <button type="submit">Ajouter Chef Unite</button>
     </form>
 </body>
 <script>
@@ -54,11 +54,25 @@
   
   // Function to logout the user
   function logoutUser() {
-      // Remove session data from cookies
-      document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      // Redirect to logout page or perform other logout actions
-      window.location.href = 'logout/'; // Redirect to logout page
-  }
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
+    // Remove session data from cookies
+    document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // Redirect to logout page or perform other logout actions
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
+    }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
+}
   
   // Function to start the countdown timer
   function startTimer() {

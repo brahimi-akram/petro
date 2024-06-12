@@ -36,6 +36,7 @@ ALLOWED_HOSTS = ['petromag-dz.com','www.petromag-dz.com','127.0.0.1' ]
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
+    'pointage.backend.StationNameBackend',
 ]
 
 # Application definition
@@ -127,8 +128,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
-STATICFILES_DIRS = os.path.join(BASE_DIR, "static")
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

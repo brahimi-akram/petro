@@ -42,7 +42,7 @@ class partnerForm(forms.ModelForm):
 class EmployeForm(forms.ModelForm):
     class Meta:
         model=Employe
-        exclude = ['id','station','active','refund_total','refund_by_month']
+        exclude = ['id','unite','active','refund_total','refund_by_month']
     
     def __init__(self, *args, **kwargs):
         super(EmployeForm,self).__init__(*args, **kwargs)
@@ -86,7 +86,7 @@ class EmployeFormForDg(forms.ModelForm):
         self.fields['mother_name'].required = True
         self.fields['function'].required = True
         self.fields['position'].required = True
-        self.fields['station'].required = True
+        self.fields['unite'].required = True
         
 
 class remboursementForm(forms.ModelForm):

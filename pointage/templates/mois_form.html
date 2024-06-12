@@ -52,22 +52,23 @@
     </style>
 </head>
 <body>
-    <form id="myForm">
+    <form id="Pointage">
         {% csrf_token %}
-        <label for="month">Mois:</label>
+        <label for="month">Type:</label>
         <select id="month" name="month">
-            <option value="1">16 Janvier - 15 Fevrier</option>
-            <option value="2">16 Fevrier - 15 Mars</option>
-            <option value="3">16 Mars - 15 Avril</option>
-            <option value="4">16 Avril - 15 Mai</option>
-            <option value="5">16 Mai - 15 Juin</option>
-            <option value="6">16 Juin - 15 Juillet</option>
-            <option value="7">16 Juillet - 15 Aout</option>
-            <option value="8">16 Aout - 15 Septembre</option>
-            <option value="9">16 Septembre - 15 Octobre</option>
-            <option value="10">16 Octobre - 15 Novembre</option>
-            <option value="11">16 Novembre - 15 Decembre</option>
-            <option value="12">16 Decembre - 15 Janvier</option>
+            <option value="0">Annual</option>
+            <option value="1">Janvier </option>
+            <option value="2">Fevrier </option>
+            <option value="3">Mars </option>
+            <option value="4">Avril </option>
+            <option value="5">Mai </option>
+            <option value="6">Juin </option>
+            <option value="7">Juillet </option>
+            <option value="8">Aout </option>
+            <option value="9">Septembre </option>
+            <option value="10">Octobre </option>
+            <option value="11">Novembre </option>
+            <option value="12">Decembre </option>
         </select>
         <button type="submit">Avancee</button>
     </form>
@@ -78,11 +79,25 @@
     
     // Function to logout the user
     function logoutUser() {
-        // Remove session data from cookies
-        document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        // Redirect to logout page or perform other logout actions
-        window.location.href = '/logout/'; // Redirect to logout page
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
+    // Remove session data from cookies
+    document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // Redirect to logout page or perform other logout actions
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
     }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
+}
     
     // Function to start the countdown timer
     function startTimer() {
@@ -95,7 +110,7 @@
     document.addEventListener('mousemove', startTimer); // Reset timer on mouse movement
     document.addEventListener('keypress', startTimer); // Reset timer on keypress
     
-    document.getElementById('myForm').addEventListener('submit', function(event) {
+    document.getElementById('Pointage').addEventListener('submit', function(event) {
             event.preventDefault();  // Prevent the default form submission
 
             // Get the selected month value
@@ -105,14 +120,14 @@
             var url = "{% url 'affichage_mois' instance.id %}";
 
             // Open a new tab and submit the form asynchronously
-            var form = document.getElementById('myForm');
+            var form = document.getElementById('Pointage');
             form.setAttribute('target', '_blank');
             form.setAttribute('action', url);
             form.setAttribute('method', 'post');
             form.submit();
 
             // Redirect the current tab back to the menu
-            window.location.href = "{% url 'table_employe' instance.station_id %}";
+            window.location.href = "{% url 'table_employe' instance.unite_id %}";
         });
     
     </script>

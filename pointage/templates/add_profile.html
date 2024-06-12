@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Profile</title>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class="container mt-5">
@@ -13,25 +14,34 @@
         <form method="post">
             {% csrf_token %}
             <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" class="form-control" id="username" name="username">
+                <label for="unite">Unite:</label>
+                <select class="form-control" id="unite" name="unite">
+                    {% for unite in stations %}
+                        <option value="{{ unite.id }}">{{ unite }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <select name="username" id="username">Employe:
+                    <option value=" " disabled selected>__</option>
+                    {% for i in instances %}
+                        <option value="{{i.name}}-{{i.last_name}}" data-unite="{{i.unite_id}}">{{i}}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="form-group">
                 <label for="password">Password:</label>
                 <input type="password" class="form-control" id="password" name="password">
             </div>
             <div class="form-group">
-                <label for="da">DA:</label>
-                <input type="number" class="form-control" id="da" name="da">
-            </div>
-            <div class="form-group">
-                <label for="station">Station:</label>
-                <select class="form-control" id="station" name="station">
-                    {% for station in stations %}
-                        <option value="{{ station.id }}">{{ station }}</option>
-                    {% endfor %}
+                <select name="da" id="da">Access:
+                    <option value=" " disabled selected>__</option>
+                    <option value="1">add profile , change unites, fdp, correct errors, manage employe, pointage</option>
+                    <option value="2"> add+update employe, pointage</option>
+                    <option value="3"> pointage</option>
                 </select>
             </div>
+            
             <button type="submit" class="btn btn-primary">Submit</button>
         </form>
     </div>
@@ -42,12 +52,25 @@
   
   // Function to logout the user
   function logoutUser() {
-      // Remove session data from cookies
-      document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      // Redirect to logout page or perform other logout actions
-      window.location.href = 'logout/'; // Redirect to logout page
-  }
-  
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
+    // Remove session data from cookies
+    document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // Redirect to logout page or perform other logout actions
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
+    }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
+}
   // Function to start the countdown timer
   function startTimer() {
       // Set the timeout for logout
@@ -59,5 +82,24 @@
   document.addEventListener('mousemove', startTimer); // Reset timer on mouse movement
   document.addEventListener('keypress', startTimer); // Reset timer on keypress
   
+
+        $(document).ready(function() {
+                    $('#unite').change(function() {
+                        console.log('in')
+                        var selectedUnit = $(this).val();
+                        $('#username option').each(function() {
+                            var employeeUnit = $(this).data('unite');
+                            if (selectedUnit === "" || selectedUnit == employeeUnit) {
+                                $(this).show();
+                            } else {
+                                $(this).hide();
+                            }
+                        });
+                        $('#username').val(''); // Resets the employee dropdown
+                    });
+
+                    // Trigger change event to filter employees on page load if a unit is selected
+                    $('#unite').change();
+                });
   </script>
 </html>

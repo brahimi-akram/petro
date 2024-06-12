@@ -164,13 +164,20 @@ a::hover{
 tr.highlight td {
             background-color: rgb(255, 153, 102);
         }
+        .hidden {
+            display: none;
+        } 
 
     </style>
 </head>
 <body>
     <div class="header">
-        {% comment %} <h1> Petromag </h1>
-        <h2> Station : {{instances.0.station}} </h2> {% endcomment %}
+        <h1> Petromag </h1>
+        <h2> Unite : {{instances.0.unite}} </h2> 
+        <div class="secondheader">
+            <button onclick="toggleTables('employe')">employees</button>
+            <button onclick="toggleTables('employe_on_mission')">employees on mission</button>
+        </div>
         <h3>{{ date|date:"Y-m-d" }}</h3> 
         <a href="{% url 'menu_view' %}" class="back-button">Retour</a>
     </div>
@@ -196,57 +203,115 @@ tr.highlight td {
             </tr>
                 <form  id="form" method="POST" >
                     {% csrf_token %}
-                    {% for i in instances %}
-                    <tr {% if i in overwork %} class="highlight" {%endif%}>
-                        <td>{{ i.id }}</td>   
-                        <td>{{ i.name }} {{ i.last_name }}</td> 
-                        {% for id, list in res.items %}
-                            {% if id == i.id %}
-                                {% for date, result in list.items %}
-                                    {% if result.is_editable or result.open_to_edit  %}
-                                        <td> 
-                                            <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
-                                                {% comment %} <option value="">-</option> {% endcomment %}
-                                                <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
-                                                {% for code in codes %}
-                                                    <option value="{{ code.ID }}">{{ code.ID }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </td>
-                                   
-                                   
-                                    {% elif result.code.ID != null  %}
-                                        {% if result.date == today %}
-                                        <td> 
-                                            <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}" class="specific-select"  disabled >
-                                            
-                                                <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
-                                                {% for code in codes %}
-                                                    <option value="{{ code.ID }}">{{ code.ID }}</option>
-                                                {% endfor %}
-                                            </select>
-    
-                                        </td>
-                                        
-                                        {% else %}
-                                        <td> <div>{{ result.code.ID }}</div></td>
-                                        {% endif %}
-                                        
-                                    {% else %}
-                                        <td> 
-                                            <select id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
-                                                    <option value="">-</option>
+                    <tbody id="employe" class="hidden">
+                        {% for i in instances %}
+                        <tr {% if i in overwork %} class="highlight" {%endif%}>
+                            <td>{{ i.id }}</td>   
+                            <td>{{ i.name }} {{ i.last_name }}</td> 
+                            {% for id, list in res.items %}
+                                {% if id == i.id %}
+                                    {% for date, result in list.items %}
+                                        {% if result.is_editable or result.open_to_edit  %}
+                                            <td> 
+                                                <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
+                                                    {% comment %} <option value="">-</option> {% endcomment %}
+                                                    <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
                                                     {% for code in codes %}
                                                         <option value="{{ code.ID }}">{{ code.ID }}</option>
                                                     {% endfor %}
-                                            </select>
-                                        </td>
-                                    {% endif %}
-                                {% endfor %}
-                            {% endif %}
+                                                </select>
+                                            </td>
+                                    
+                                    
+                                        {% elif result.code.ID != null  %}
+                                            {% if result.date == today %}
+                                            <td> 
+                                                <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}" class="specific-select"  disabled >
+                                                
+                                                    <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
+                                                    {% for code in codes %}
+                                                        <option value="{{ code.ID }}">{{ code.ID }}</option>
+                                                    {% endfor %}
+                                                </select>
+        
+                                            </td>
+                                            
+                                            {% else %}
+                                            <td> <div>{{ result.code.ID }}</div></td>
+                                            {% endif %}
+                                            
+                                        {% else %}
+                                            <td> 
+                                                <select id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
+                                                        <option value="">-</option>
+                                                        {% for code in codes %}
+                                                            <option value="{{ code.ID }}">{{ code.ID }}</option>
+                                                        {% endfor %}
+                                                </select>
+                                            </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
                         {% endfor %}
-                    </tr>
-                    {% endfor %}
+                    </tbody>
+                    <tbody id="employe_on_mission" class="hidden">
+                        {% for i in employe_on_mission %}
+                        <tr {% if i in overwork %} class="highlight" {%endif%}>
+                            <td>{{ i.id }}</td>   
+                            <td>{{ i.name }} {{ i.last_name }}</td> 
+                            {% for id, list in res2.items %}
+                                {% if id == i.id %}
+                                    {% for date, result in list.items %}
+                                        {% if result.is_editable or result.open_to_edit  %}
+                                            <td> 
+                                                <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
+                                                    {% comment %} <option value="">-</option> {% endcomment %}
+                                                    <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
+                                                    {% for code in codes %}
+                                                        <option value="{{ code.ID }}">{{ code.ID }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+                                    
+                                    
+                                        {% elif result.code.ID != null  %}
+                                            {% if result.date == today %}
+                                            <td> 
+                                                <select  id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}" class="specific-select"  disabled >
+                                                
+                                                    <option value="{{ result.code.ID }}" selected>{{ result.code.ID }}</option>
+                                                    {% for code in codes %}
+                                                        <option value="{{ code.ID }}">{{ code.ID }}</option>
+                                                    {% endfor %}
+                                                </select>
+        
+                                            </td>
+                                            
+                                            {% else %}
+                                            <td> <div>{{ result.code.ID }}</div></td>
+                                            {% endif %}
+                                            
+                                        {% else %}
+                                            <td> 
+                                                <select id="{{ i.id }}_{{ date }}" name="{{ i.id }}_{{ date }}">
+                                                        <option value="">-</option>
+                                                        {% for code in codes %}
+                                                            <option value="{{ code.ID }}">{{ code.ID }}</option>
+                                                        {% endfor %}
+                                                </select>
+                                            </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                            <td><input type="checkbox" name="{{i.id}}_valid" id="{{i.id}}_valid">valid</td>
+                        </tr>
+                        
+                        {% endfor %}
+                        
+                    </tbody>
                     <div class="secondheader"> 
                         <button type="submit"  id="submitButton" class="btn btn-success"> Sauvgarder </button>    
                         <button type="button" id="modifyBtn" class="btn btn-secondary mx-3" > Modifier </button>
@@ -255,9 +320,7 @@ tr.highlight td {
                 
     
                 </form>
-    
-    
-        
+
         </table>
 
     </div>
@@ -326,10 +389,24 @@ const timeoutDuration = 240000;
 
 // Function to logout the user
 function logoutUser() {
+    var urlScheme = window.location.protocol;
+
+    // Get the hostname
+    var hostname = window.location.hostname;
+
+    // Get the port (if specified)
+    var port = window.location.port;
     // Remove session data from cookies
     document.cookie = "sessionid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     // Redirect to logout page or perform other logout actions
-    window.location.href = 'logout/'; // Redirect to logout page
+    var logoutUrl = urlScheme + '//' + hostname;
+    if (port) {
+        logoutUrl += ':' + port;
+    }
+    logoutUrl += '/logout/';
+    console.log(logoutUrl)
+    // Redirect to the logout URL
+    window.location.href = logoutUrl; // Redirect to logout page
 }
 
 // Function to start the countdown timer
@@ -342,6 +419,15 @@ function startTimer() {
 document.addEventListener('DOMContentLoaded', startTimer);
 document.addEventListener('mousemove', startTimer); // Reset timer on mouse movement
 document.addEventListener('keypress', startTimer); // Reset timer on keypress
+
+function toggleTables(tableId) {
+            document.getElementById('employe').classList.add('hidden');
+            document.getElementById('employe_on_mission').classList.add('hidden');
+            document.getElementById(tableId).classList.remove('hidden');
+        }
+
+        // Initial display setup
+        document.getElementById('employe').classList.remove('hidden');
 
 </script>
 </html>

@@ -1,4 +1,7 @@
 #the first part is a script that takes information from a sheet and create instances for each employe in that sheet If you want to use it you should modify model so that it won't check for pk
+from django.db import connection
+import win32com.client
+import pythoncom
 from .models import *
 from openpyxl import load_workbook
 from datetime import datetime 
@@ -6,7 +9,15 @@ import glob
 import os
 import subprocess
 def init_sheet():
-    file=r'C:\Users\lenovo\OneDrive\Bureau\git_repo\pointage\LISTE PERSONNEL 2004.xlsx'
+    Employe.objects.all().delete()
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='pointage_employe';")
+
+# Step 3: Vacuum the database to reclaim storage space
+    with connection.cursor() as cursor:
+        cursor.execute("VACUUM;")
+    
+    file=r'C:\Users\lenovo\OneDrive\Bureau\git_repo\pointage_for_windows\pointage\lISTE DU PERSONNEL.xlsx'
     workbook=load_workbook(file)
     sheet_names=workbook.sheetnames
     i=0
@@ -21,11 +32,18 @@ def init_sheet():
             employe.name=worksheet[f'{column[1]}{row}'].value
             employe.last_name=worksheet[f'{column[2]}{row}'].value
             employe.function=worksheet[f'{column[3]}{row}'].value
-            employe.station_id=i
+            employe.unite_id=i
             row+=1
             employe.save()
 
 def init_code():
+    Code_Employe.objects.all().delete()
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='pointage_code_employe';")
+
+# Step 3: Vacuum the database to reclaim storage space
+    with connection.cursor() as cursor:
+        cursor.execute("VACUUM;")
     current_dir = os.getcwd()
     parent_dir=os.path.join(current_dir,"test")
 # Search for Excel files in the parent directory
@@ -64,7 +82,6 @@ def init_code():
             for iterator in range(len(days)):
                 code_emp=Code_Employe()
                 code_iter=codes[iterator]
-                print(code_iter)
                 try:
                     code_emp.code=Code.objects.get(pk=codes[iterator])
                 except:
@@ -75,20 +92,15 @@ def init_code():
                     else:    
                         code_emp.date=date_current.replace(day=int(days[iterator]),month=date_current.month+1)
                 else:
-                    print(days)
                     code_emp.date=date_current.replace(day=int(days[iterator]))
                 code_emp.employe=emp
                 code_emp.save()
 
 def init_employe():
     current_dir = os.getcwd()
-    print(current_dir)
     parent_dir=os.path.join(current_dir,"creer")
-    print(parent_dir)
 # Search for Excel files in the parent directory
     excel_files = glob.glob(os.path.join(parent_dir, '*.xlsx'))
-    print(glob.glob(os.path.join(parent_dir, '*.xlsx')))
-    print(excel_files)
     if excel_files:
         for file in excel_files:
             workbook=load_workbook(file)
@@ -96,7 +108,10 @@ def init_employe():
             for sheet_name in sheet_names:
                 worksheet=workbook[sheet_name]
                 if worksheet['B7'].value:
-                    employe=Employe()
+                    try:
+                        employe=Employe.objects.get(name=worksheet['B7'].value ,last_name=worksheet['F7'].value)
+                    except:
+                        employe=Employe()
                     employe.name=worksheet['B7'].value
                     employe.last_name=worksheet['F7'].value
                     employe.date_of_birth=worksheet['B9'].value
@@ -113,6 +128,12 @@ def init_employe():
                     employe.cnas_number=worksheet['H15'].value
                     employe.function=worksheet['B17'].value
                     employe.position=worksheet['G17'].value
+                    if not employe.unite:
+                        unite=["ALGER","MECHRIA","TAMANRASSET","AIN SEFRA","IN SALAH"]
+                        index=unite.index(employe.position)
+                        print(index)
+                        employe.unite=Unite.objects.get(id=index+1)
+
                     employe.enterprise=worksheet['I17'].value
                     employe.recruitment_date=worksheet['B19'].value
                     employe.department=worksheet['E19'].value
@@ -121,9 +142,7 @@ def init_employe():
                     employe.contract_effective_date=worksheet['D21'].value
                     employe.contract_validation_date=worksheet['F21'].value
                     employe.contract_termination_date=worksheet['H21'].value
-                    print(employe)
                     if worksheet['C23'].value != 'EXEMPLTE':
-                        print('in exemplte')
                         employe.national_service_departure_date=worksheet['C23'].value
                         employe.national_service_returne_date=worksheet['E23'].value
                         employe.national_service_recall_departure_date=worksheet['G23'].value
@@ -187,9 +206,24 @@ def init_employe():
                         field_value = getattr(employe, field.name)
                         print(f"{field.verbose_name}: {field_value}")
 
-def excel_to_pdf(file_path,*args):
+def excel_to_pdf(pdf_path,output_file,output_folder):
+    pythoncom.CoInitialize()
+    excel_file=os.path.join(output_folder,output_file)
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = False
+
+    # Open the XLSX file
+    workbook = excel.Workbooks.Open(excel_file)
 
     try:
+        # Save the file as PDF
+        workbook.ExportAsFixedFormat(0, pdf_path)
+    finally:
+        # Close the workbook and quit Excel
+        workbook.Close(False)
+        excel.Quit()
+
+    '''try:
         # Construct the command to execute
         command = [file_path] + list(args)
         
@@ -208,7 +242,7 @@ def excel_to_pdf(file_path,*args):
             return f"Error: {error}"
     except Exception as e:
         print(e)
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}"'''
     
 def date_handling(input):
     if isinstance(input, datetime):
@@ -220,3 +254,54 @@ def date_handling(input):
         except ValueError:
             output= None  # Handle invalid date formats
     return output
+
+
+def codage(table,info,operation):
+    current_directory=os.getcwd() #
+    filename='changes.txt'
+    file_path=os.path.join(current_directory,filename)
+    try:
+        with open (file_path,'a') as file3:
+            string = str(table)+'||'+str(operation)+'||'
+            file3.write (string)
+            if table == 68:#employe
+                field_names = [field.name for field in Employe._meta.get_fields() if not field.many_to_many and not field.one_to_many ]
+            else :
+                field_names = [field.name for field in Code_Employe._meta.get_fields() if not field.many_to_many and not field.one_to_many]
+            
+            data={field : getattr(info,field) for field in field_names}
+            for key in data.keys():
+                file3.write (str(data[key])+'||')
+                
+            file3.write (str('\n'))
+        return 1
+    except :
+        return 0
+    
+def decodage():
+
+    current_directory=os.getcwd() #
+    filename='changes.txt'
+    file_path=os.path.join(current_directory,filename)
+    try:
+        
+        with open(file_path,'r') as file3:
+            for line in file3:
+                list_elements=line.split('||')
+                if  list_elements[0]==str(68):#employe
+                    field_names = [field.name for field in Employe._meta.get_fields() if not field.many_to_many and not field.one_to_many ]
+                else :
+                    field_names = [field.name for field in Code_Employe._meta.get_fields() if not field.many_to_many and not field.one_to_many]
+                del list_elements[0]
+                operation=list_elements.pop(0)
+                if operation ==str(1):
+                    code_emp=Code_Employe()
+                    i=0
+                    for fild in field_names:
+                        print (fild,list_elements[i])
+                        i+=1
+    except:
+        pass
+    return 1
+
+        
