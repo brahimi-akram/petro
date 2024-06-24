@@ -18,11 +18,14 @@ from shutil import copyfile
 import time
 
 def pointage2(request,ID):
+
     unite = Unite.objects.get(id=ID)
     instances=Employe.objects.filter(unite=unite)
-    mission_station=Mission.objects.filter(current_unite_id=ID,start_date__lt=datetime.now().date())
+    mission_station=Mission.objects.filter(current_unite_id=ID,start_date__lte=datetime.now().date())
     employe_on_mission=Employe.objects.filter(mission__in=mission_station).distinct()
     employe_on_mission=employe_on_mission.exclude(unite_id=ID)
+    mission_for_employe_to_disable=Mission.objects.filter(employe__in=instances,start_date__lte=datetime.now().date()).distinct()
+    employe_to_disable=Employe.objects.filter(mission__in=mission_for_employe_to_disable,unite=unite).distinct()
     all_employe=list(instances)+list(employe_on_mission)
     date=datetime.now().date()  
     f_date = date - timedelta(days=5)
@@ -93,6 +96,7 @@ def pointage2(request,ID):
                     code_emp.code=Code.objects.get(pk=choice)
                     
                     code_emp.save()
+                    create_log(request.user.username,"add",f"code employe {code_emp}")
             for emp in employe_on_mission:
                 valid=request.POST(f"{emp.id}_valid")
                 if valid:
@@ -104,7 +108,8 @@ def pointage2(request,ID):
                     mission.unites=new_unites
                     mission.total_validation-=1
                     if mission.total_validation==0:
-                        mission.status=3
+                        mission.status=2
+                        create_log(request.user.username,"valid",f"{mission}")
                     
             unite.last_update= datetime.now().date()
             unite.save()
@@ -158,7 +163,7 @@ def pointage2(request,ID):
                 
                 res2[i.id] = tmp
         codes=Code.objects.all()
-        context={'date':date,'instances':instances,'date_range':date_range,'codes':codes,'res':res,'today':date,'overwork':overworked_employes,'employe_on_mission':employe_on_mission,'res2':res2}
+        context={'date':date,'instances':instances,'date_range':date_range,'codes':codes,'res':res,'today':date,'overwork':overworked_employes,'employe_on_mission':employe_on_mission,'res2':res2,'employe_to_disable':employe_to_disable,}
         return render(request,'pointage.html',context)
 
 
@@ -175,7 +180,7 @@ def find_cell(date):
 
 
 
-def main_view(request,ID):
+def main_view(request,ID,year):
     i=Employe.objects.get(pk=ID)
     current_directory=os.getcwd()
     template_file = os.path.join(current_directory,"template.xlsx")
@@ -187,11 +192,10 @@ def main_view(request,ID):
     file_path=os.path.join(current_directory,output_file)
     if os.path.exists(file_path):
         # If the output file exists, load it for editing
-        workbook = load_workbook(output_file)
-    else:
+        os.remove(file_path)
         # If the output file doesn't exist, create a new workbook as a duplicate of the template
-        copyfile(template_file, output_file)
-        workbook = load_workbook(output_file)
+    copyfile(template_file, output_file)
+    workbook = load_workbook(output_file)
 
     # Get the active worksheet (the first sheet by default)
     sheet = workbook.active
@@ -227,14 +231,15 @@ def main_view(request,ID):
     sheet["AG11"].value = "" if f"{i.numbre_of_children}" == 'None' else i.numbre_of_children
 
     # Set the value of the range "AO4:AT4" to the current year
-    sheet["AO4"].value = datetime.now().year
+    sheet["AO4"].value = year
     '''range=sheet['A118'].value
     sheet[range].value=request.user.profile.name
     column, row = coordinate_from_string(range)
     new_row = row + 1
     new_cell_ref = f"{column}{new_row}'''#this code for keeping logs for the user that enterd to pointage annee (needs date)
     try:
-        code_list=Code_Employe.objects.filter(employe_id=ID)
+        code_list=Code_Employe.objects.filter(employe_id=ID,date__year=year)
+        print(code_list)
 
         for code in code_list:
             base_row=ord('A')
@@ -250,6 +255,7 @@ def main_view(request,ID):
 
             
     except:
+
         pass
 
     # Save the workbook
@@ -259,18 +265,15 @@ def main_view(request,ID):
     file_path = os.path.join(current_directory, file_name)
     output_folder=current_directory #os.path.join(current_directory,"temp/")
     pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}.pdf")
-    start_time=time.time()
     excel_to_pdf(pdf_name,output_file,output_folder)
-    end_time=time.time()
-    execution=end_time - start_time
-    print(execution)
     pdf_file= pdf_name#os.path.join(output_folder,pdf_name)
     response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
     response['Content-Disposition'] = 'inline'
+    create_log(request.user.username,"create",f"pointage annual {i}")
     return response
 
 def login_view(request):
-    
+    #init_code()
     if request.user.is_authenticated:
         return redirect("menu_view")
     if request.method == 'POST':
@@ -279,6 +282,7 @@ def login_view(request):
         user = authenticate(request, unitename=unitname, password=password)
         if user is not None:
             login(request, user)
+            create_log(user,"login"," ")
             return redirect('menu_view')  # Redirect to home page after successful login
         else:
             # Handle invalid login
@@ -389,6 +393,7 @@ def add_employe(request,ID):
                             child=childform.save(commit=False)
                             child.id_employe=user
                             child.save()
+                create_log(request.user.username,"add",f"employe {user}")
                 return redirect('table_employe',ID)
         else :
             form = EmployeFormForDg(prefix="employe")
@@ -418,7 +423,7 @@ def add_employe(request,ID):
                             child=childform.save(commit=False)
                             child.employe_id=user.id
                             child.save()
-                
+                create_log(request.user.username,"add",f"employe {user}")
                 return redirect('table_employe',ID)
         else:
             form = EmployeForm(prefix='employe')
@@ -437,7 +442,9 @@ def pointage_mois(request,ID):
     # if request.user.profile.unite.id != ID and (request.user.profile.da == 1) :
     #     return redirect("menu_view")
     instance=Employe.objects.get(pk=ID)
-    return render(request,'mois_form.html',{'instance':instance})
+    current_year = datetime.now().year
+    years = range(2023, current_year + 1) 
+    return render(request,'mois_form.html',{'instance':instance,"years":years})
 
 
 def affichage_mois(request,ID):
@@ -459,7 +466,8 @@ def affichage_mois(request,ID):
     }
     month=int(request.POST.get("month"))
     if month == 0:
-        return redirect(main_view,ID)
+        given_year=request.POST.get('year')
+        return redirect(main_view,ID,given_year)
     employe=Employe.objects.get(pk=ID)
     template_file = "template_mois.xlsx"
     output_file = f"{request.user.username}{ID}_mois.xlsx"
@@ -471,12 +479,11 @@ def affichage_mois(request,ID):
     template_file=os.path.join(current_directory,template_file)
     file_path=os.path.join(current_directory,output_file)
     if os.path.exists(file_path):
-        # If the output file exists, load it for editing
-        workbook = load_workbook(output_file)
-    else:
-        # If the output file doesn't exist, create a new workbook as a duplicate of the template
-        copyfile(template_file, output_file)
-        workbook = load_workbook(output_file)
+            # If the output file exists, load it for editing
+            os.remove(file_path)
+            # If the output file doesn't exist, create a new workbook as a duplicate of the template
+    copyfile(template_file, output_file)
+    workbook = load_workbook(output_file)
 
     # Get the active worksheet (the first sheet by default)
     sheet = workbook.active
@@ -547,7 +554,228 @@ def affichage_mois(request,ID):
     pdf_file=pdf_name #os.path.join(output_folder,pdf_name)
     response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
     response['Content-Disposition'] = 'inline'
+    create_log(request.user.username,"create",f"pointage {month_names_french[month]} {employe}")
     return response
+
+
+
+
+def pointage_mois_all(request,ID):
+    # if request.user.profile.unite.id != ID and (request.user.profile.da == 1) :
+    #     return redirect("menu_view")
+    instance=Unite.objects.get(pk=ID)
+    current_year = datetime.now().year
+    years = range(2023, current_year + 1) 
+    return render(request,'mois_form_all.html',{'instance':instance,"years":years})
+
+def affichage_mois_all(request,ID):
+    
+    month_names_french = {
+        0: 'janvier',
+        1: 'janvier',
+        2: 'février',
+        3: 'mars',
+        4: 'avril',
+        5: 'mai',
+        6: 'juin',
+        7: 'juillet',
+        8: 'août',
+        9: 'septembre',
+        10: 'octobre',
+        11: 'novembre',
+        12: 'décembre',
+    }
+    month=int(request.POST.get("month"))
+    given_year=request.POST.get('year')
+    if month == 0:
+        
+        return redirect(main_view_all,ID,given_year)
+    employees=Employe.objects.filter(unite_id=ID,active=1)
+    employees=employees.exclude(special=2)
+    template_file = "template_mois.xlsx"
+    output_file = f"{request.user.username}{ID}_unit_mois.xlsx"
+    current_directory = os.getcwd()
+
+
+# Get the parent directory of the current working directory
+    # Check if the output file exists
+    template_file=os.path.join(current_directory,template_file)
+    file_path=os.path.join(current_directory,output_file)
+    if os.path.exists(file_path):
+        # If the output file exists, load it for editing
+        os.remove(file_path)
+        # If the output file doesn't exist, create a new workbook as a duplicate of the template
+    copyfile(template_file, output_file)
+    workbook=load_workbook(file_path)
+    # Get the active worksheet (the first sheet by default)
+    for employe in employees:
+        sheet = workbook.copy_worksheet(workbook.active)
+        sheet.title=f'{employe.id}'
+        sheet["S4"]=f'16 {month_names_french[month]} 2024'
+        sheet['W4']=f'15 {month_names_french[(int(month)+1)%12]} 2024'
+        sheet['AC1']=f'{request.user.profile.unite}{datetime.now().date}'
+        sheet['C11']=f'{employe.id}'
+        sheet['H11']=f'{employe.name}'
+        sheet['R11']=f'{employe.last_name}'
+        sheet['R13']=f'{employe.function}'
+        year=int(given_year)
+        last_day=calendar.monthrange(year,month)[1]
+        for rows in sheet['B17:AF17']:
+            for cells in rows:
+                cells.value=None
+                cells.border=Border()
+        for rows in sheet['B18:AF18']:
+            for cells in rows:
+                cells.value=None
+                cells.border=Border() 
+        start_date_obj = datetime.strptime(f'2024-{month}-16', "%Y-%m-%d")
+        end_month=month+1
+        if end_month==13:
+            end_month=1
+        end_date_obj = datetime.strptime(f'2024-{end_month}-15', "%Y-%m-%d")
+        # Generate list of days as integers
+        days_list = []
+        current_date = start_date_obj
+        while current_date <= end_date_obj:
+            days_list.append(current_date.day)
+            current_date += timedelta(days=1)
+        row=17
+        set_column='B'
+        for counter in range(last_day):
+            if set_column>'Z':
+                column=f'A{chr(ord(set_column)%90+64)}'
+            else:
+                column=set_column
+            border_style = Border(
+                left=Side(border_style="thin"),
+                right=Side(border_style="thin"),
+                top=Side(border_style="thin"),
+                bottom=Side(border_style="thin")
+            )
+            sheet[f'{column}{row}'].border=border_style
+            sheet[f'{column}{row+1}'].border=border_style
+            sheet[f'{column}{row}']=days_list[counter]
+            if(days_list[counter]<16):
+                date=datetime(year=2024,month=int(month)+1,day=days_list[counter])
+            else:
+                date=datetime(year=2024,month=month,day=days_list[counter])
+            try:
+                code=Code_Employe.objects.get(employe=employe,date=date)
+                sheet[f'{column}{row+1}']=code.code_id
+            except:
+                pass
+            
+            set_column=chr(ord(set_column)+1)
+    workbook.remove(workbook.active)    
+    workbook.save(output_file)
+    current_directory = os.getcwd()
+    file_name = "convert.sh"
+    file_path = os.path.join(current_directory, file_name)
+    output_folder=current_directory #os.path.join(current_directory,"temp/")
+    pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}_mois.pdf")
+    excel_to_pdf(pdf_name,output_file,output_folder)
+    
+    pdf_file=pdf_name #os.path.join(output_folder,pdf_name)
+    response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
+    response['Content-Disposition'] = 'inline'
+    create_log(request.user.username,"create",f"pointage {month_names_french[month]} {employe}")
+    return response
+
+
+def main_view_all(request,ID,year):
+    employees=Employe.objects.filter(unite_id=ID,active=1)
+    employees=employees.exclude(special=2)
+    current_directory=os.getcwd()
+    template_file = os.path.join(current_directory,"template.xlsx")
+    output_file = os.path.join(current_directory,f"{request.user.username}{ID}_unit.xlsx")
+    current_directory = os.getcwd()
+
+# Get the parent directory of the current working directory
+    # Check if the output file exists
+    file_path=os.path.join(current_directory,output_file)
+    if os.path.exists(file_path):
+        # If the output file exists, load it for editing
+        os.remove(file_path)
+        # If the output file doesn't exist, create a new workbook as a duplicate of the template
+    copyfile(template_file, output_file)
+    workbook = load_workbook(output_file)
+    for i in employees:
+    # Get the active worksheet (the first sheet by default)
+        sheet=workbook.copy_worksheet(workbook.active)
+        sheet.title=f'{i.id}'
+
+        # Add or modify data in the worksheet as needed
+        sheet["AG6"].value = "" if f"{i.recruitment_date}" == 'None' else i.recruitment_date
+
+    # Set the value of the range "B8:N8" to i.function
+        sheet["B8"].value = i.function
+
+        # Set the value of the range "U6:X6" to i.id
+        sheet["U6"].value = i.id
+
+        # Set the value of the range "B6:N6" to i.name
+        sheet["B6"].value = i.name
+
+        # Set the value of the range "B7:N7" to i.last_name
+        sheet["B7"].value = i.last_name
+
+        # Set the value of the range "AG8:AJ8" to i.Date_Detach
+        #sheet["AG8"].value = "" if f"{i.Date_Detach}" == 'None' else i.Date_Detach
+
+        # Set the value of the range "B10:X10" to i.Adresse
+        sheet["B10"].value = "" if f"{i.adresse}" == 'None' else i.adresse
+
+        # Set the value of the range "AG9:AM9" to i.Affect_Origin
+        #sheet["AG9"].value = "" if f"{i.Affect_Origin}" == 'None' else i.Affect_Origin
+
+        # Set the value of the range "AG10:AJ10" to i.Situation_Familliale
+        sheet["AG10"].value = "" if f"{i.familiy_situation}" == 'None' else i.familiy_situation
+
+        # Set the value of the range "AG11:AH11" to i.Nbr_Enfants
+        sheet["AG11"].value = "" if f"{i.numbre_of_children}" == 'None' else i.numbre_of_children
+
+        # Set the value of the range "AO4:AT4" to the current year
+        sheet["AO4"].value = year
+        '''range=sheet['A118'].value
+        sheet[range].value=request.user.profile.name
+        column, row = coordinate_from_string(range)
+        new_row = row + 1
+        new_cell_ref = f"{column}{new_row}'''#this code for keeping logs for the user that enterd to pointage annee (needs date)
+        try:
+            code_list=Code_Employe.objects.filter(employe_id=i.id,date__year=year)
+
+            for code in code_list:
+                base_row=ord('A')
+                base_col=13
+                date_to_treat=code.date
+                base_col+=date_to_treat.month
+                base_row+=date_to_treat.day
+                if chr(base_row) >'Z':
+                    row='A'+chr(65 + (base_row - 65) % (90 - 65 + 1))
+                else:
+                    row=chr(base_row)
+                sheet[f'{row}{base_col}']=code.code_id
+
+                
+        except:
+
+            pass
+
+    # Save the workbook
+    workbook.remove(workbook.active)
+    workbook.save(output_file)
+    current_directory = os.getcwd()
+    file_name = "convert.sh"
+    file_path = os.path.join(current_directory, file_name)
+    output_folder=current_directory #os.path.join(current_directory,"temp/")
+    pdf_name=os.path.join(current_directory,f"{request.user.username}{ID}.pdf")
+    excel_to_pdf(pdf_name,output_file,output_folder)
+    pdf_file= pdf_name#os.path.join(output_folder,pdf_name)
+    response = FileResponse(open(pdf_file, 'rb'), content_type='application/pdf')
+    response['Content-Disposition'] = 'inline'
+    create_log(request.user.username,"create",f"pointage annual {i}")
+    return response
+
 
 
 def update_employe(request,ID):
@@ -563,7 +791,10 @@ def update_employe(request,ID):
     child_setup=inlineformset_factory(Employe, Child,form=childForm,extra=0)
     
     if request.method == 'POST':
-        form = EmployeForm(request.POST, instance=employe,prefix='employe')
+        if request.user.profile.da ==1:
+            form= EmployeFormForDg(request.POST, instance=employe,prefix='employe')
+        else:
+            form = EmployeForm(request.POST, instance=employe,prefix='employe')
         formset_diplomes = diplomes_setup(request.POST, instance=employe, queryset=diplomes)
         formset_children = child_setup(request.POST, instance=employe, queryset=children)
         partner_form = partnerForm(request.POST,prefix='partner')
@@ -581,8 +812,6 @@ def update_employe(request,ID):
                     elif diplome.is_valid():
                         d=diplome.save(commit=False)
                         filled=any(diplome[field.name].value() for field in diplome if field.name not in [f'id_employe',f'DELETE'])
-                        for field in diplome:
-                            print(field.name,diplome[field.name].value())
                         if filled:
                             d.id_employe=employe
                             d.save()
@@ -611,7 +840,10 @@ def update_employe(request,ID):
                         partner.save()
             return redirect(table_employe,employe.unite_id)
     else:
-        form=EmployeForm(instance=employe,prefix='employe') 
+        if request.user.profile.da==1:
+            form=EmployeFormForDg(instance=employe,prefix='employe')
+        else:    
+            form=EmployeForm(instance=employe,prefix='employe') 
         partnerform=partnerForm(prefix='partner')
         if partner:
             partnerform=partnerForm(instance=partner,prefix='partner')
@@ -632,6 +864,7 @@ def corriger_erreur(request):
     employees = Employe.objects.all()
     message=""
     if request.method == "POST":
+        print(request.POST)
         date = request.POST.get("date")
         employe_id = request.POST.get("selected")
         code = Code_Employe.objects.filter(employe = employe_id , date=date)
@@ -693,7 +926,7 @@ def fiche_de_paie(validation_date , valid):
     30: 'AI',
     31: 'AJ'
 }
-    print(validation_date)
+    
     endcell = end[validation_date.day]
     endtmp = None
     if len(endcell) >= 2:
@@ -730,7 +963,7 @@ def fiche_de_paie(validation_date , valid):
     worbook = load_workbook(path)
     sheet = worbook.active 
     i = 20 
-    sheet[f'F6'] = f'{date(validation_date.year , validation_date.month,1)}'
+    sheet[f'F6'] = f'{date(year=yyyy,month=mm,day=1)}'
     month_periode = datetime.now().month - 1
     if month_periode == 0 :
         month_periode = 12
@@ -740,99 +973,108 @@ def fiche_de_paie(validation_date , valid):
         mission = {
         "5":0 , "4":0 , "3":0 , "2" : 0 , "1" : 0 , "MS":0 
         }   
-        tmp_date = datetime.now().replace(day=1) 
+        tmp_date = datetime.now().replace(day=1)
         sheet[f'C{i}'] = f'{employe.name} {employe.last_name}'
         sheet[f'B{i}'] = employe.id
         sheet[f'E{i}'] = employe.function
-        if employe.refund_by_month != 0 :
-            sheet[f'D{i}'] = f'{employe.refund_by_month}'
-            employe.refund_total -= employe.refund_by_month
-            employe.refund_by_month = 0 
-            employe.save()
-        for cell in range(ord('F'),ord(endcell)):
-            code = Code_Employe.objects.filter(employe=employe,date=tmp_date)
-            try:
-                if str(code[0]) in mission:
-                    sheet[f'{chr(cell)}{i}'] = "MI"
-                    mission[str(code[0])] += 1
-                else:
-                    sheet[f'{chr(cell)}{i}'] = str(code[0])
-            except:
-                sheet[f'{chr(cell)}{i}'] = " "
-            tmp_date = tmp_date + timedelta(days=1)
-        if endtmp is None:
-            if endcell != 'Z':
-                for cell in range(ord(endcell)+1 , ord('Z') + 1): 
-                    sheet[f'{chr(cell)}{i}'] = "T"
-            for cell in range(ord('A'),ord(final_cell)+1):
-                sheet[f'A{chr(cell)}{i}'] = "T"
+        if employe.special==2:
+            for cell in range(ord('F'),ord(endcell)+1):
+                sheet[f'{chr(cell)}{i}']='T'
+            if endtmp is not None:
+                c = endtmp[1]
+                for cell in range(ord('A'),ord(c)+1):
+                    sheet[f'A{chr(cell)}{i}']='T'
         else:
-            c = endtmp[1]
-            for cell in range(ord('A'),ord(c)+1):
+            if employe.refund_by_month != 0 :
+                sheet[f'D{i}'] = f'{employe.refund_by_month}'
+                employe.refund_total -= employe.refund_by_month
+                employe.refund_by_month = 0 
+                employe.save()
+            for cell in range(ord('F'),ord(endcell)+1):
+                code = Code_Employe.objects.filter(employe=employe,date=tmp_date)
                 try:
                     if str(code[0]) in mission:
                         sheet[f'{chr(cell)}{i}'] = "MI"
                         mission[str(code[0])] += 1
                     else:
-                        sheet[f'{chr(cell)}{i}'] = str(code[0])
+                        sheet[f'{chr(cell)}{i}'] = str(code[0].code)
                 except:
-                    sheet[f'{chr(cell)}{i}'] = " "   
-            for cell in range(ord(c)+1,ord(final_cell)+1):
-                sheet[f'A{chr(cell)}{i}'] = "T"
-        
-        month_stat=None
-        
-        try :
-            print(f'{month_periode}{yyyy}')
-            month_stat = Month_stat.objects.get(employe=employe , period = f'{month_periode}{yyyy}')
-            # print("have : ", month_stat)
-            sheet[f'AL{i}'].value += f'+{month_stat.conge}' 
-            sheet[f'AM{i}'].value += f'+{month_stat.absent}'
-            sheet[f'AN{i}'].value += f'+{month_stat.abs_autorise}'
-            sheet[f'AO{i}'].value += f'+{month_stat.rs}'
-            sheet[f'AP{i}'].value += f'+{month_stat.eve_fam}'
-            sheet[f'AQ{i}'].value += f'+{month_stat.mission}'
-            sheet[f'AR{i}'].value += f'+{month_stat.mld}'
-        except:
-            pass
-        
-        
-        for k,v in mission.items() :
-            if v != 0 :
-                print("Employe name : " , employe.name)
-                sheet[f'F{tt}'].value = f'{employe.name} {employe.last_name} : {v} j mission en code ({k})'
-                tt += 1
-        
-        if month_stat:
-            if month_stat.absent != 0:
-                # print("Employe name : " , employe.name)
-                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.absent} j Absence  sur le mois {month_names_french[mm-1]}'
-                t = t+1
-            if month_stat.abs_autorise != 0:
-                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.abs_autorise} j Absence  Autorise sur le mois {month_names_french[mm-1]}'
-                t = t+1
-            if month_stat.conge != 0:
-                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.conge} j Conge {month_names_french[mm-1]}'
-                t = t+1
-            if month_stat.rs != 0:
-                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.rs} j Recuperation {month_names_french[mm-1]}'
-                t = t+1
-            if month_stat.mld != 0:
-                sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.mld} j Maladie {month_names_french[mm-1]}'
-                t = t+1
+                    sheet[f'{chr(cell)}{i}'] = " "
+                tmp_date = tmp_date + timedelta(days=1)
+            if endtmp is None:
+                if endcell != 'Z':
+                    for cell in range(ord(endcell)+1 , ord('Z') + 1): 
+                        sheet[f'{chr(cell)}{i}'] = "T"
+                for cell in range(ord('A'),ord(final_cell)+1):
+                    sheet[f'A{chr(cell)}{i}'] = "T"
+            else:
+                c = endtmp[1]
+                for cell in range(ord('A'),ord(c)+1):
+                    code = Code_Employe.objects.filter(employe=employe,date=tmp_date)
+                    try:
+                        print(code[0])
+                        if str(code[0]) in mission:
+                            sheet[f'{chr(cell)}{i}'] = "MI"
+                            mission[str(code[0])] += 1
+                        else:
+                            sheet[f'A{chr(cell)}{i}'] = str(code[0].code)
+                    except:
+                        sheet[f'A{chr(cell)}{i}'] = " " 
+                    tmp_date = tmp_date + timedelta(days=1)  
+                for cell in range(ord(c),ord(final_cell)+1):
+                    sheet[f'A{chr(cell)}{i}'] = "T"
             
+            month_stat=None
+            
+            try :
+                month_stat = Month_stat.objects.get(employe=employe , period = f'{month_periode}{yyyy}')
+                # print("have : ", month_stat)
+                sheet[f'AL{i}'].value += f'+{month_stat.conge}' 
+                sheet[f'AM{i}'].value += f'+{month_stat.absent}'
+                sheet[f'AN{i}'].value += f'+{month_stat.abs_autorise}'
+                sheet[f'AO{i}'].value += f'+{month_stat.rs}'
+                sheet[f'AP{i}'].value += f'+{month_stat.eve_fam}'
+                sheet[f'AQ{i}'].value += f'+{month_stat.mission}'
+                sheet[f'AR{i}'].value += f'+{month_stat.mld}'
+            except:
+                pass
+            
+            
+            for k,v in mission.items() :
+                if v != 0 :
+                    sheet[f'F{tt}'].value = f'{employe.name} {employe.last_name} : {v} j mission en code ({k})'
+                    tt += 1
+            
+            if month_stat:
+                if month_stat.absent != 0:
+                    # print("Employe name : " , employe.name)
+                    sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.absent} j Absence  sur le mois {month_names_french[mm-1]}'
+                    t = t+1
+                if month_stat.abs_autorise != 0:
+                    sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.abs_autorise} j Absence  Autorise sur le mois {month_names_french[mm-1]}'
+                    t = t+1
+                if month_stat.conge != 0:
+                    sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.conge} j Conge {month_names_french[mm-1]}'
+                    t = t+1
+                if month_stat.rs != 0:
+                    sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.rs} j Recuperation {month_names_french[mm-1]}'
+                    t = t+1
+                if month_stat.mld != 0:
+                    sheet[f'AC{t}'].value = f'{employe.name} {employe.last_name} : {month_stat.mld} j Maladie {month_names_french[mm-1]}'
+                    t = t+1
+                
             i = i + 1
     zs=Employe.objects.filter(active=2)
     for z in zs:
-        sheet[f'C{i}'] = f'{employe.name} {employe.last_name}'
-        sheet[f'B{i}'] = employe.id
-        sheet[f'E{i}'] = employe.function
+        sheet[f'C{i}'] = f'{z.name} {z.last_name}'
+        sheet[f'B{i}'] = z.id
+        sheet[f'E{i}'] = z.function
         z.actif=3
         sheet.merge_cells(f'F{i}:AG{i}')
         sheet[f'F{i}']='STC'
     if valid:
         sheet['F14'].value = f'validee le {validation_date} '
-    worbook.save(f"{current_directory}/excel/fiche_de_pointage{month_names_french[mm]}{yyyy}.xlsx")
+    worbook.save(f"{path}")
     
     
     
@@ -853,7 +1095,7 @@ def fiche_de_paie(validation_date , valid):
 def desactiver(request,ID):
     emp = Employe.objects.get(pk=ID)
     
-    emp.actif=2
+    emp.active=2
     emp.save()
     
     
@@ -862,7 +1104,7 @@ def desactiver(request,ID):
 def activer(request,ID):
     emp = Employe.objects.get(pk=ID)
     
-    emp.actif=1
+    emp.active=1
     emp.save()
     
     
@@ -910,7 +1152,6 @@ def validation_fdp(request):
     
     
     p = f'{month_names_french[datetime.now().month]}{datetime.now().year}'   
-    print(p) 
     pp = f'{p}NonValide'
     return render(request , 'validation_fdp.html', {"today":datetime.now().day, 'employees': employe_rembourse  ,
                                                     "exist":e , "p":p , "pp":pp})
@@ -1116,5 +1357,6 @@ def mission(request,ID):
         mission.current_unite=unite
         mission.unites=all_unites
         mission.save()
+        create_log(request.user.username,"create",f"mission {mission}")
         return redirect(table_employe,employe.unite_id)
 

@@ -51,7 +51,7 @@ class Code_Employe(models.Model):
     
         
     def __str__(self) -> str:
-        return str(self.code.ID)
+        return f"{self.code} {self.employe} {self.date}"
 
 
 class Profile(models.Model):
@@ -134,6 +134,7 @@ class Employe(models.Model):
     refund_total=models.IntegerField(default=0)
     refund_by_month=models.IntegerField(default=0)
     active = models.IntegerField(default=1) #1= working | 2=not this month | 3=archive
+    special = models.SmallIntegerField(default=0)
     
     
     
@@ -185,3 +186,13 @@ class Mission(models.Model):
     current_unite=models.ForeignKey(Unite,on_delete=models.CASCADE)
     unites=models.CharField(max_length=30)
     status=models.PositiveSmallIntegerField(default=0)
+    def __str__(self):
+        return f'{self.employe}_{self.current_unite}'
+    
+class History(models.Model):
+    user=models.CharField(max_length=90)
+    operation=models.CharField(max_length=40)
+    table=models.CharField(max_length=30)
+    date=models.DateTimeField()
+    def __str__(self):
+        return f'{self.user}_{self.operation}_{self.table}_{self.date}'

@@ -70,6 +70,12 @@
             <option value="11">Novembre </option>
             <option value="12">Decembre </option>
         </select>
+        <label for="year">Year</label>
+        <select id="year" name="year">
+            {% for year in years %}
+            <option value="{{year}}" {% if forloop.last %}selected{% endif %}>{{year}}</option>
+            {% endfor %}
+        </select>
         <button type="submit">Avancee</button>
     </form>
 </body>

@@ -5,46 +5,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Profile</title>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<style>
+    body {
+            padding-top: 50px;
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa; /* Light gray background */
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #fff; /* White background for form */
+            padding: 20px; /* Add padding to form container */
+            border-radius: 5px; /* Add rounded corners to form container */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Add shadow to form container */
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none;
+        }
+</style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1>Add Profile</h1>
-        <form method="post">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="unite">Unite:</label>
-                <select class="form-control" id="unite" name="unite">
-                    {% for unite in stations %}
-                        <option value="{{ unite.id }}">{{ unite }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <select name="username" id="username">Employe:
-                    <option value=" " disabled selected>__</option>
-                    {% for i in instances %}
-                        <option value="{{i.name}}-{{i.last_name}}" data-unite="{{i.unite_id}}">{{i}}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" class="form-control" id="password" name="password">
-            </div>
-            <div class="form-group">
-                <select name="da" id="da">Access:
-                    <option value=" " disabled selected>__</option>
-                    <option value="1">add profile , change unites, fdp, correct errors, manage employe, pointage</option>
-                    <option value="2"> add+update employe, pointage</option>
-                    <option value="3"> pointage</option>
-                </select>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Submit</button>
-        </form>
-    </div>
+<div class="container">
+    <h1>Add Profile</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label for="unite">Unite:</label>
+        <select id="unite" name="unite">
+            {% for unite in stations %}
+                <option value="{{ unite.id }}">{{ unite }}</option>
+            {% endfor %}
+        </select>
+        <label for="username">Employe:</label>
+        <select id="username" name="username">
+            <option value=" " disabled selected>__</option>
+            {% for i in instances %}
+                <option value="{{i.name}}-{{i.last_name}}" data-unite="{{i.unite_id}}">{{i}}</option>
+            {% endfor %}
+        </select>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password">
+        <label for="da">Access:</label>
+        <select id="da" name="da">
+            <option value=" " disabled selected>__</option>
+            <option value="1">add profile, change unites, fdp, correct errors, manage employe, pointage</option>
+            <option value="2">add+update employe, pointage</option>
+            <option value="3">pointage</option>
+        </select>
+        
+        <button type="submit">Submit</button>
+    </form>
+</div>
 </body>
 <script>
     // Set the timeout duration in milliseconds (4 minutes)
@@ -82,24 +121,28 @@
   document.addEventListener('mousemove', startTimer); // Reset timer on mouse movement
   document.addEventListener('keypress', startTimer); // Reset timer on keypress
   
+  document.addEventListener('DOMContentLoaded', function() {
+            var uniteSelect = document.getElementById('unite');
+            var usernameSelect = document.getElementById('username');
 
-        $(document).ready(function() {
-                    $('#unite').change(function() {
-                        console.log('in')
-                        var selectedUnit = $(this).val();
-                        $('#username option').each(function() {
-                            var employeeUnit = $(this).data('unite');
-                            if (selectedUnit === "" || selectedUnit == employeeUnit) {
-                                $(this).show();
-                            } else {
-                                $(this).hide();
-                            }
-                        });
-                        $('#username').val(''); // Resets the employee dropdown
-                    });
+            uniteSelect.addEventListener('change', function() {
+                var selectedUnit = this.value;
+                var options = usernameSelect.options;
 
-                    // Trigger change event to filter employees on page load if a unit is selected
-                    $('#unite').change();
-                });
+                for (var i = 0; i < options.length; i++) {
+                    var employeeUnit = options[i].getAttribute('data-unite');
+                    if (selectedUnit === employeeUnit) {
+                        options[i].classList.remove('hidden');
+                    } else {
+                        options[i].classList.add('hidden');
+                    }
+                }
+                usernameSelect.value = ''; // Reset the employee dropdown
+            });
+
+            // Trigger change event to filter employees on page load if a unit is selected
+            uniteSelect.dispatchEvent(new Event('change'));
+        });
+        
   </script>
 </html>

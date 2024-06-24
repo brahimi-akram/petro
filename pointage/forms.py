@@ -50,27 +50,27 @@ class EmployeForm(forms.ModelForm):
             field.required=False
         self.fields['name'].required = True
         self.fields['last_name'].required = True
-        self.fields['date_of_birth'].requried = True
+        '''self.fields['date_of_birth'].requried = True
         self.fields['place_of_birth'].required = True
         self.fields['phone'].required = True
         self.fields['father_name'].required = True
         self.fields['mother_name'].required = True
         self.fields['function'].required = True
-        self.fields['position'].required = True
+        self.fields['position'].required = True'''
         
 
 
 class EmployeFormForDg(forms.ModelForm):
     class Meta:
         model=Employe
-        exclude = ['id','active','refund_total','refund_by_month']
+        exclude = ['id','refund_total','refund_by_month']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control','required':True}),
             'last_name': forms.TextInput(attrs={'class': 'form-control','required':True}),
-            'adresse': forms.TextInput(attrs={'class': 'form-control','required':True}),
-            'recruitment_date': forms.DateInput(attrs={'class': 'form-control','required':True}),
-            'familiy_situation': forms.TextInput(attrs={'class': 'form-control','required':True}),
-            'Nbr_Enfants': forms.NumberInput(attrs={'class': 'form-control','required':True}),
+            #'adresse': forms.TextInput(attrs={'class': 'form-control','required':True}),
+            #'recruitment_date': forms.DateInput(attrs={'class': 'form-control','required':True}),
+            #'familiy_situation': forms.TextInput(attrs={'class': 'form-control','required':True}),
+            #'Nbr_Enfants': forms.NumberInput(attrs={'class': 'form-control','required':True}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -79,14 +79,14 @@ class EmployeFormForDg(forms.ModelForm):
             field.required=False
         self.fields['name'].required = True
         self.fields['last_name'].required = True
-        self.fields['date_of_birth'].requried = True
+        '''self.fields['date_of_birth'].requried = True
         self.fields['place_of_birth'].required = True
         self.fields['phone'].required = True
         self.fields['father_name'].required = True
         self.fields['mother_name'].required = True
         self.fields['function'].required = True
         self.fields['position'].required = True
-        self.fields['unite'].required = True
+        self.fields['unite'].required = True'''
         
 
 class remboursementForm(forms.ModelForm):

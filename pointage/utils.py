@@ -78,15 +78,19 @@ def init_code():
             for row in worksheet[f'B{index+1}:AF{index+1}']:
                 for cell in row:
                     codes.append(cell.value)
-            
+
+            #if file=='C:\Users\lenovo\OneDrive\Bureau\pointage\test\Copie de FEUILLE DE POSITION ALGER JUIN 2024 (2)' and :
             for iterator in range(len(days)):
+                
                 code_emp=Code_Employe()
                 code_iter=codes[iterator]
                 try:
                     code_emp.code=Code.objects.get(pk=codes[iterator])
                 except:
+                    if codes[iterator] :
+                        print(f'wrong code {codes[iterator]} in {file} for {emp.id} at {iterator}')
                     continue
-                if int(days[iterator])<16:
+                if int(iterator)>=16:
                     if date_current.month==12:
                         code_emp.date=date_current.replace(day=int(days[iterator]),month=1,year=year_of_the_file+1)
                     else:    
@@ -131,7 +135,6 @@ def init_employe():
                     if not employe.unite:
                         unite=["ALGER","MECHRIA","TAMANRASSET","AIN SEFRA","IN SALAH"]
                         index=unite.index(employe.position)
-                        print(index)
                         employe.unite=Unite.objects.get(id=index+1)
 
                     employe.enterprise=worksheet['I17'].value
@@ -202,9 +205,6 @@ def init_employe():
                         child.save()
                         row+=1
                         cell=worksheet[f'A{row}'].value
-                    for field in Employe._meta.fields:
-                        field_value = getattr(employe, field.name)
-                        print(f"{field.verbose_name}: {field_value}")
 
 def excel_to_pdf(pdf_path,output_file,output_folder):
     pythoncom.CoInitialize()
@@ -296,12 +296,15 @@ def decodage():
                 operation=list_elements.pop(0)
                 if operation ==str(1):
                     code_emp=Code_Employe()
-                    i=0
-                    for fild in field_names:
-                        print (fild,list_elements[i])
-                        i+=1
     except:
         pass
     return 1
 
+def create_log(profile,operation,table):
+    new_log=History()
+    new_log.user=profile
+    new_log.operation=operation
+    new_log.table=table
+    new_log.date=datetime.now()
+    new_log.save()
         
